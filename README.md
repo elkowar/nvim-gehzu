@@ -16,3 +16,8 @@ Use the following functions in your keybinds:
 require('nvim-gehzu').show_definition()
 require('nvim-gehzu').go_to_definition()
 ```
+
+
+## Dependencies
+
+- [nvim-treesitter](https://github.com/nvim-treesitter)
