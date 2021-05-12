@@ -4,8 +4,8 @@
             str aniseed.string
             fennel aniseed.fennel
             popup popup
-            ts nvim-treesitter}
-   require-macros [macros]})
+            ts nvim-treesitter}})
+   ;require-macros [nvim-gehzu.macros]})
 
 (macro bind-let [binds ...]
   (fn normalize-elem [ident]
@@ -46,6 +46,10 @@
                     ,expr
                     (print ,(.. "(at least) one of the values of " (view mappings) "=" (view value) " was nil")))))))))
   expr)
+
+
+;(defn open-file [path]
+  ;(bind-let [target-winnr (v)]))
 
 
 
@@ -111,11 +115,6 @@
       (table.insert paths (.. path "/lua/?/init.lua")))
     paths))
 
-(defn find-module-path [module-name]
-  "Find the path corresponding to the given module identifier"
-  (let [module-name (module-name:gsub "%." "/")]
-    (utils.find-map #(utils.keep-if file-exists? ($1:gsub "?" module-name))
-                    all-module-paths)))
 
 (defn file-exists? [path]
   (let [file (io.open path :r)]
@@ -123,6 +122,13 @@
       (do (io.close file)
         true)
       false)))
+
+
+(defn find-module-path [module-name]
+  "Find the path corresponding to the given module identifier"
+  (let [module-name (module-name:gsub "%." "/")]
+    (utils.find-map #(utils.keep-if file-exists? ($1:gsub "?" module-name))
+                    all-module-paths)))
 
 
 (defn get-filetype [filename]
@@ -134,6 +140,7 @@
 (defn read-file-to-lines [path]
   "read a file into a list of lines"
   (icollect [line _ (io.lines path)] line))
+  ; alternatively: vim.fn.readfile
 
 (defn read-module-file [module-name]
   "Given the name of a module, returns two values: 
@@ -189,21 +196,24 @@
       (table.insert code-lines (. lines i)))
     code-lines))
 
-; TODO make this handle absence of mod
 (defn goto-definition [word mod]
-  (when (not mod)
-    (error "Current module goto definition not yet implemented"))
-  (bind-let [(cur-mod-name imports)   (read-module-imports-fnl 0)
-             actual-mod               (or (. imports mod) mod)
-             module-file-path         (find-module-path actual-mod)
-             (module-lines module-ft) (read-module-file actual-mod)
-             node                     (find-definition-node-fnl module-lines word)
-             parent                  (node:parent)
-             bufnr                   (create-buf-with module-lines true)
-             (r1 c1 r2 c2)           (parent:range)]
-    (vim.api.nvim_buf_set_option bufnr :filetype module-ft)
-    (vim.cmd (.. "buffer " bufnr))
-    (vim.fn.cursor (+ r1 1) c1)))
+  (if mod
+    (bind-let [(cur-mod-name imports)   (read-module-imports-fnl 0)
+               actual-mod               (or (. imports mod) mod)
+               module-file-path         (find-module-path actual-mod)
+               (module-lines module-ft) (read-module-file actual-mod)
+               node                     (find-definition-node-fnl module-lines word)
+               parent                   (node:parent)
+               (r1 c1 r2 c2)            (parent:range)]
+      (vim.cmd (.. "view " module-file-path))
+      (vim.fn.cursor (+ r1 2) c1))
+
+    ; no module given - result in current file
+    (bind-let [module-lines  (vim.api.nvim_buf_get_lines 0 1 -1 false)
+               node          (find-definition-node-fnl module-lines word)
+               parent        (node:parent)
+               (r1 c1 r2 c2) (parent:range)]
+      (vim.fn.cursor (+ r1 2) c1))))
 
 
 (defn gib-definition [word mod]
@@ -214,10 +224,10 @@
                definition-lines         (find-definition-str-fnl module-lines word)]
       (pop definition-lines module-ft))
     
+    ; no module given - result in current file
     (bind-let [current-file-lines (read-file-to-lines (vim.fn.expand "%"))
                definition-lines (find-definition-str-fnl current-file-lines word)]
       (pop definition-lines vim.bo.filetype))))
-
 
 (fn _G.gib_def [goto]
   (xpcall

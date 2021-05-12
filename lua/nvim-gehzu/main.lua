@@ -24,7 +24,7 @@ local function _1_(...)
   end
   ok_3f_0_, val_0_ = pcall(_1_)
   if ok_3f_0_ then
-    _0_0["aniseed/local-fns"] = {["require-macros"] = {macros = true}, require = {a = "aniseed.core", fennel = "aniseed.fennel", popup = "popup", str = "aniseed.string", ts = "nvim-treesitter", utils = "nvim-gehzu.utils"}}
+    _0_0["aniseed/local-fns"] = {["require-macros"] = {["nvim-gehzu.macros"] = true}, require = {a = "aniseed.core", fennel = "aniseed.fennel", popup = "popup", str = "aniseed.string", ts = "nvim-treesitter", utils = "nvim-gehzu.utils"}}
     return val_0_
   else
     return print(val_0_)
