@@ -56,7 +56,7 @@
     "fennel"
     "(function_call 
       name: (identifier) @module-header-name (#eq? @module-header-name \"module\")
-      (identifier) @module-name
+      [(identifier) (field_expression)] @module-name
       (table ((identifier) @import-type
               (table ((identifier) @key (_) @value)*)
              )*
@@ -134,18 +134,18 @@
     [_ :fnl] "fennel"
     [_ :lua] "lua"))
 
+(defn read-file-to-lines [path]
+  "read a file into a list of lines"
+  (icollect [line _ (io.lines path)] line))
+
 (defn read-module-file [module-name]
   "Given the name of a module, returns two values: 
    the lines of the file that matched a given module
      and the filetype of that module"
   (bind-let [path   (find-module-path module-name)
              ft     (get-filetype path)
-             result (icollect [line _ (io.lines path)] line)]
+             result (read-file-to-lines path)]
     (values result ft)))
-
-(defn read-file-to-lines [path]
-  "read a file into a list of lines"
-  (icollect [line _ (io.lines path)] line))
 
 
 ;(defn make-def-query [symbol])
@@ -192,7 +192,10 @@
 
 
 
-(defn goto-definition [mod word]
+; TODO make this handle absence of mod
+(defn goto-definition [word mod]
+  (when (not mod)
+    (error "Current module goto definition not yet implemented"))
   (bind-let [(cur-mod-name imports)   (read-module-imports-fnl 0)
              actual-mod               (dbg (or (. imports mod) mod))
              module-file-path         (find-module-path actual-mod)
@@ -204,16 +207,20 @@
     (vim.api.nvim_buf_set_option bufnr :filetype module-ft)
     (vim.cmd (.. "buffer " bufnr))
     (vim.fn.cursor (+ r1 1) c1)))
-      
-  
 
 
-(defn gib-definition [mod word]
-  (bind-let [(cur-mod-name imports)   (read-module-imports-fnl 0)
-             actual-mod               (or (. imports mod) mod)
-             (module-lines module-ft) (read-module-file actual-mod)
-             definition-lines         (find-definition-str-fnl module-lines word)]
-    (pop definition-lines module-ft)))
+(defn gib-definition [word mod]
+  (if mod
+    (bind-let [(cur-mod-name imports)   (read-module-imports-fnl 0)
+               actual-mod               (or (. imports mod) mod)
+               (module-lines module-ft) (read-module-file actual-mod)
+               definition-lines         (find-definition-str-fnl module-lines word)]
+      (pop definition-lines module-ft))
+    
+    (bind-let [current-file-lines (read-file-to-lines (vim.fn.expand "%"))
+               definition-lines (find-definition-str-fnl current-file-lines word)]
+      (pop definition-lines vim.bo.filetype))))
+
 
 (fn _G.gib_def [goto]
   (xpcall
@@ -223,15 +230,14 @@
         (match segs
           [mod ident]
           (if goto 
-            (goto-definition mod ident)
-            (gib-definition mod ident))
+            (goto-definition ident mod)
+            (gib-definition ident mod))
                   
 
           [ident] 
-          (let [(cur-mod-name _) (read-module-imports-fnl 0)]
-            (if goto 
-              (goto-definition cur-mod-name ident)
-              (gib-definition cur-mod-name ident))))))
+          (if goto 
+            (goto-definition ident)
+            (gib-definition ident)))))
     #(print (fennel.traceback $1))))
 
 
