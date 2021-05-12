@@ -1,13 +1,11 @@
 (module nvim-gehzu.main
-  {require {utils utils
+  {require {utils nvim-gehzu.utils
             a aniseed.core
             str aniseed.string
             fennel aniseed.fennel
             popup popup
             ts nvim-treesitter}
    require-macros [macros]})
-
-
 
 (macro bind-let [binds ...]
   (fn normalize-elem [ident]
@@ -70,9 +68,9 @@
   (bind-let [parser   (vim.treesitter.get_parser bufnr "fennel")
              [tstree] (parser:parse)
              tsnode   (tstree:root)]
+    (var current-module-name nil)
     (var last-module nil)
     (var modules {})
-    (var current-module-name nil)
     (each [id node metadata (query-module-header:iter_captures tsnode bufnr 0 -1)]
       (bind-let [name          (. query-module-header.captures id)
                  (r1 c1 r2 c2) (node:range)
@@ -84,12 +82,11 @@
     (values current-module-name modules)))
 
 (defn get-current-word []
+  "Return the word the cursor is currently hovering over"
   (let [col  (. (vim.api.nvim_win_get_cursor 0) 2)
         line (vim.api.nvim_get_current_line)]
-    (.. (vim.fn.matchstr (line:sub 1 (+ col 1)) 
-                         "\\k*$")
-        (string.sub (vim.fn.matchstr (line:sub (+ col 1))
-                                     "^\\k*")
+    (.. (vim.fn.matchstr (line:sub 1 (+ col 1)) "\\k*$")
+        (string.sub (vim.fn.matchstr (line:sub (+ col 1)) "^\\k*")
                     2))))
 
 (defn pop [text ft]
@@ -114,6 +111,11 @@
       (table.insert paths (.. path "/lua/?/init.lua")))
     paths))
 
+(defn find-module-path [module-name]
+  "Find the path corresponding to the given module identifier"
+  (let [module-name (module-name:gsub "%." "/")]
+    (utils.find-map #(utils.keep-if file-exists? ($1:gsub "?" module-name))
+                    all-module-paths)))
 
 (defn file-exists? [path]
   (let [file (io.open path :r)]
@@ -121,11 +123,6 @@
       (do (io.close file)
         true)
       false)))
-
-(defn find-module-path [module-name]
-  (let [module-name (module-name:gsub "%." "/")]
-    (utils.find-map #(utils.keep-if file-exists? ($1:gsub "?" module-name))
-                    all-module-paths)))
 
 
 (defn get-filetype [filename]
@@ -170,6 +167,7 @@
     bufnr))
 
 (defn find-definition-node-fnl [lines symbol]
+  "Returns the treesitter-node corresponding to the searched symbol-definition in the given lines"
   (assert (a.table? lines) "text must be given as list of lines")
   (bind-let [query    (make-def-query symbol)
              bufnr    (create-buf-with lines false)
@@ -177,27 +175,26 @@
              [tstree] (parser:parse)
              tsnode   (tstree:root)]
     (each [id node metadata (query:iter_captures tsnode bufnr 0 -1)]
-      (let [name (. query.captures id)]
-        (when (= name "symbol-name")
-          (lua "return node"))))))
+      (when (= "symbol-name" (. query.captures id))
+        (lua "return node")))))
+
 
 (defn find-definition-str-fnl [lines symbol]
-  (bind-let [node         (find-definition-node-fnl lines symbol)
-             parent       (node:parent)
+  "Returns the searched symbol-definition from the given lines as a list of lines"
+  (bind-let [node          (find-definition-node-fnl lines symbol)
+             parent        (node:parent)
              (r1 c1 r2 c2) (parent:range)]
     (var code-lines [])
     (for [i (+ r1 1) r2]
       (table.insert code-lines (. lines i)))
     code-lines))
 
-
-
 ; TODO make this handle absence of mod
 (defn goto-definition [word mod]
   (when (not mod)
     (error "Current module goto definition not yet implemented"))
   (bind-let [(cur-mod-name imports)   (read-module-imports-fnl 0)
-             actual-mod               (dbg (or (. imports mod) mod))
+             actual-mod               (or (. imports mod) mod)
              module-file-path         (find-module-path actual-mod)
              (module-lines module-ft) (read-module-file actual-mod)
              node                     (find-definition-node-fnl module-lines word)

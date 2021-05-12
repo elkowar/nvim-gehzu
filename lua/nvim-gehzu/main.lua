@@ -20,11 +20,11 @@ local autoload = (require("aniseed.autoload")).autoload
 local function _1_(...)
   local ok_3f_0_, val_0_ = nil, nil
   local function _1_()
-    return {require("aniseed.core"), require("aniseed.fennel"), require("popup"), require("aniseed.string"), require("nvim-treesitter"), require("utils")}
+    return {require("aniseed.core"), require("aniseed.fennel"), require("popup"), require("aniseed.string"), require("nvim-treesitter"), require("nvim-gehzu.utils")}
   end
   ok_3f_0_, val_0_ = pcall(_1_)
   if ok_3f_0_ then
-    _0_0["aniseed/local-fns"] = {["require-macros"] = {["nvim-gehzu.macros"] = true}, require = {a = "aniseed.core", fennel = "aniseed.fennel", popup = "popup", str = "aniseed.string", ts = "nvim-treesitter", utils = "utils"}}
+    _0_0["aniseed/local-fns"] = {["require-macros"] = {macros = true}, require = {a = "aniseed.core", fennel = "aniseed.fennel", popup = "popup", str = "aniseed.string", ts = "nvim-treesitter", utils = "nvim-gehzu.utils"}}
     return val_0_
   else
     return print(val_0_)
@@ -42,7 +42,7 @@ local _2amodule_name_2a = "nvim-gehzu.main"
 do local _ = ({nil, _0_0, nil, {{nil}, nil, nil, nil}})[2] end
 local query_module_header
 do
-  local v_0_ = vim.treesitter.parse_query("fennel", "(function_call \n      name: (identifier) @module-header-name (#eq? @module-header-name \"module\")\n      (identifier) @module-name\n      (table ((identifier) @import-type\n              (table ((identifier) @key (_) @value)*)\n             )*\n      )\n     )")
+  local v_0_ = vim.treesitter.parse_query("fennel", "(function_call \n      name: (identifier) @module-header-name (#eq? @module-header-name \"module\")\n      [(identifier) (field_expression)] @module-name\n      (table ((identifier) @import-type\n              (table ((identifier) @key (_) @value)*)\n             )*\n      )\n     )")
   local t_0_ = (_0_0)["aniseed/locals"]
   t_0_["query-module-header"] = v_0_
   query_module_header = v_0_
@@ -54,23 +54,50 @@ do
     local v_0_0
     local function read_module_imports_fnl0(bufnr)
       local parser = vim.treesitter.get_parser(bufnr, "fennel")
-      local _let_0_ = parser:parse()
-      local tstree = _let_0_[1]
-      local tsnode = tstree:root()
-      local last_module = nil
-      local modules = {}
-      for id, node, metadata in query_module_header:iter_captures(tsnode, bufnr, 0, -1) do
-        local name = query_module_header.captures[id]
-        local r1, c1, r2, c2 = node:range()
-        local node_text = vim.treesitter.get_node_text(node, 0)
-        local _2_0 = name
-        if (_2_0 == "key") then
-          last_module = node_text
-        elseif (_2_0 == "value") then
-          modules[last_module] = node_text
+      if (nil ~= parser) then
+        local _let_0_ = parser:parse()
+        local tstree = _let_0_[1]
+        if (nil ~= tstree) then
+          local tsnode = tstree:root()
+          if (nil ~= tsnode) then
+            local current_module_name = nil
+            local last_module = nil
+            local modules = {}
+            for id, node, metadata in query_module_header:iter_captures(tsnode, bufnr, 0, -1) do
+              local name = query_module_header.captures[id]
+              if (nil ~= name) then
+                local r1, c1, r2, c2 = node:range()
+                if ((nil ~= r1) and (nil ~= c1) and (nil ~= r2) and (nil ~= c2)) then
+                  local node_text = vim.treesitter.get_node_text(node, 0)
+                  if (nil ~= node_text) then
+                    local _2_0 = name
+                    if (_2_0 == "module-name") then
+                      current_module_name = node_text
+                    elseif (_2_0 == "key") then
+                      last_module = node_text
+                    elseif (_2_0 == "value") then
+                      modules[last_module] = node_text
+                    end
+                  else
+                    print("Value node-text=(vim.treesitter.get_node_text node 0) was nil")
+                  end
+                else
+                  print("(at least) one of the values of (r1 c1 r2 c2)=(node:range) was nil")
+                end
+              else
+                print("Value name=(. query-module-header.captures id) was nil")
+              end
+            end
+            return current_module_name, modules
+          else
+            return print("Value tsnode=(tstree:root) was nil")
+          end
+        else
+          return print("(at least) one of the values of [tstree]=(parser:parse) was nil")
         end
+      else
+        return print("Value parser=(vim.treesitter.get_parser bufnr \"fennel\") was nil")
       end
-      return modules
     end
     v_0_0 = read_module_imports_fnl0
     _0_0["read-module-imports-fnl"] = v_0_0
@@ -144,6 +171,26 @@ do
   t_0_["all-module-paths"] = v_0_
   all_module_paths = v_0_
 end
+local find_module_path
+do
+  local v_0_
+  do
+    local v_0_0
+    local function find_module_path0(module_name)
+      local module_name0 = module_name:gsub("%.", "/")
+      local function _2_(_241)
+        return utils["keep-if"](__fnl_global__file_2dexists_3f, _241:gsub("?", module_name0))
+      end
+      return utils["find-map"](_2_, all_module_paths)
+    end
+    v_0_0 = find_module_path0
+    _0_0["find-module-path"] = v_0_0
+    v_0_ = v_0_0
+  end
+  local t_0_ = (_0_0)["aniseed/locals"]
+  t_0_["find-module-path"] = v_0_
+  find_module_path = v_0_
+end
 local file_exists_3f
 do
   local v_0_
@@ -165,26 +212,6 @@ do
   local t_0_ = (_0_0)["aniseed/locals"]
   t_0_["file-exists?"] = v_0_
   file_exists_3f = v_0_
-end
-local find_module_path
-do
-  local v_0_
-  do
-    local v_0_0
-    local function find_module_path0(module_name)
-      local module_name0 = module_name:gsub("%.", "/")
-      local function _2_(_241)
-        return utils["keep-if"](file_exists_3f, _241:gsub("?", module_name0))
-      end
-      return utils["find-map"](_2_, all_module_paths)
-    end
-    v_0_0 = find_module_path0
-    _0_0["find-module-path"] = v_0_0
-    v_0_ = v_0_0
-  end
-  local t_0_ = (_0_0)["aniseed/locals"]
-  t_0_["find-module-path"] = v_0_
-  find_module_path = v_0_
 end
 local get_filetype
 do
@@ -209,34 +236,6 @@ do
   t_0_["get-filetype"] = v_0_
   get_filetype = v_0_
 end
-local read_module_file
-do
-  local v_0_
-  do
-    local v_0_0
-    local function read_module_file0(module_name)
-      local path = find_module_path(module_name)
-      if path then
-        local ft = get_filetype(path)
-        local result
-        do
-          local tbl_0_ = {}
-          for line, _ in io.lines(path) do
-            tbl_0_[(#tbl_0_ + 1)] = line
-          end
-          result = tbl_0_
-        end
-        return result, ft
-      end
-    end
-    v_0_0 = read_module_file0
-    _0_0["read-module-file"] = v_0_0
-    v_0_ = v_0_0
-  end
-  local t_0_ = (_0_0)["aniseed/locals"]
-  t_0_["read-module-file"] = v_0_
-  read_module_file = v_0_
-end
 local read_file_to_lines
 do
   local v_0_
@@ -256,6 +255,37 @@ do
   local t_0_ = (_0_0)["aniseed/locals"]
   t_0_["read-file-to-lines"] = v_0_
   read_file_to_lines = v_0_
+end
+local read_module_file
+do
+  local v_0_
+  do
+    local v_0_0
+    local function read_module_file0(module_name)
+      local path = find_module_path(module_name)
+      if (nil ~= path) then
+        local ft = get_filetype(path)
+        if (nil ~= ft) then
+          local result = read_file_to_lines(path)
+          if (nil ~= result) then
+            return result, ft
+          else
+            return print("Value result=(read-file-to-lines path) was nil")
+          end
+        else
+          return print("Value ft=(get-filetype path) was nil")
+        end
+      else
+        return print("Value path=(find-module-path module-name) was nil")
+      end
+    end
+    v_0_0 = read_module_file0
+    _0_0["read-module-file"] = v_0_0
+    v_0_ = v_0_0
+  end
+  local t_0_ = (_0_0)["aniseed/locals"]
+  t_0_["read-module-file"] = v_0_
+  read_module_file = v_0_
 end
 local make_def_query
 do
@@ -300,18 +330,37 @@ do
     local function find_definition_node_fnl0(lines, symbol)
       assert(a["table?"](lines), "text must be given as list of lines")
       local query = make_def_query(symbol)
-      local bufnr = create_buf_with(lines, false)
-      local parser = vim.treesitter.get_parser(bufnr, "fennel")
-      local _let_0_ = parser:parse()
-      local tstree = _let_0_[1]
-      local tsnode = tstree:root()
-      for id, node, metadata in query:iter_captures(tsnode, bufnr, 0, -1) do
-        local name = query.captures[id]
-        if (name == "symbol-name") then
-          return node
+      if (nil ~= query) then
+        local bufnr = create_buf_with(lines, false)
+        if (nil ~= bufnr) then
+          local parser = vim.treesitter.get_parser(bufnr, "fennel")
+          if (nil ~= parser) then
+            local _let_0_ = parser:parse()
+            local tstree = _let_0_[1]
+            if (nil ~= tstree) then
+              local tsnode = tstree:root()
+              if (nil ~= tsnode) then
+                for id, node, metadata in query:iter_captures(tsnode, bufnr, 0, -1) do
+                  if ("symbol-name" == query.captures[id]) then
+                    return node
+                  end
+                end
+                return nil
+              else
+                return print("Value tsnode=(tstree:root) was nil")
+              end
+            else
+              return print("(at least) one of the values of [tstree]=(parser:parse) was nil")
+            end
+          else
+            return print("Value parser=(vim.treesitter.get_parser bufnr \"fennel\") was nil")
+          end
+        else
+          return print("Value bufnr=(create-buf-with lines false) was nil")
         end
+      else
+        return print("Value query=(make-def-query symbol) was nil")
       end
-      return nil
     end
     v_0_0 = find_definition_node_fnl0
     _0_0["find-definition-node-fnl"] = v_0_0
@@ -328,14 +377,24 @@ do
     local v_0_0
     local function find_definition_str_fnl0(lines, symbol)
       local node = find_definition_node_fnl(lines, symbol)
-      if node then
+      if (nil ~= node) then
         local parent = node:parent()
-        local r1, c1, r2, c2 = parent:range()
-        local code_lines = {}
-        for i = (r1 + 1), r2 do
-          table.insert(code_lines, lines[i])
+        if (nil ~= parent) then
+          local r1, c1, r2, c2 = parent:range()
+          if ((nil ~= r1) and (nil ~= c1) and (nil ~= r2) and (nil ~= c2)) then
+            local code_lines = {}
+            for i = (r1 + 1), r2 do
+              table.insert(code_lines, lines[i])
+            end
+            return code_lines
+          else
+            return print("(at least) one of the values of (r1 c1 r2 c2)=(parent:range) was nil")
+          end
+        else
+          return print("Value parent=(node:parent) was nil")
         end
-        return code_lines
+      else
+        return print("Value node=(find-definition-node-fnl lines symbol) was nil")
       end
     end
     v_0_0 = find_definition_str_fnl0
@@ -351,19 +410,52 @@ do
   local v_0_
   do
     local v_0_0
-    local function goto_definition0(mod, word)
-      local imports = read_module_imports_fnl(0)
-      local actual_mod = (imports[mod] or mod)
-      local module_file_path = find_module_path(actual_mod)
-      local module_lines, module_ft = read_module_file(actual_mod)
-      local node = find_definition_node_fnl(module_lines, word)
-      if node then
-        local parent = node:parent()
-        local r1, c1, r2, c2 = parent:range()
-        local bufnr = create_buf_with(module_lines, true)
-        vim.api.nvim_buf_set_option(bufnr, "filetype", module_ft)
-        vim.cmd(("buffer " .. bufnr))
-        return vim.fn.cursor((r1 + 1), c1)
+    local function goto_definition0(word, mod)
+      if not mod then
+        error("Current module goto definition not yet implemented")
+      end
+      local cur_mod_name, imports = read_module_imports_fnl(0)
+      if ((nil ~= cur_mod_name) and (nil ~= imports)) then
+        local actual_mod = (imports[mod] or mod)
+        if (nil ~= actual_mod) then
+          local module_file_path = find_module_path(actual_mod)
+          if (nil ~= module_file_path) then
+            local module_lines, module_ft = read_module_file(actual_mod)
+            if ((nil ~= module_lines) and (nil ~= module_ft)) then
+              local node = find_definition_node_fnl(module_lines, word)
+              if (nil ~= node) then
+                local parent = node:parent()
+                if (nil ~= parent) then
+                  local bufnr = create_buf_with(module_lines, true)
+                  if (nil ~= bufnr) then
+                    local r1, c1, r2, c2 = parent:range()
+                    if ((nil ~= r1) and (nil ~= c1) and (nil ~= r2) and (nil ~= c2)) then
+                      vim.api.nvim_buf_set_option(bufnr, "filetype", module_ft)
+                      vim.cmd(("buffer " .. bufnr))
+                      return vim.fn.cursor((r1 + 1), c1)
+                    else
+                      return print("(at least) one of the values of (r1 c1 r2 c2)=(parent:range) was nil")
+                    end
+                  else
+                    return print("Value bufnr=(create-buf-with module-lines true) was nil")
+                  end
+                else
+                  return print("Value parent=(node:parent) was nil")
+                end
+              else
+                return print("Value node=(find-definition-node-fnl module-lines word) was nil")
+              end
+            else
+              return print("(at least) one of the values of (module-lines module-ft)=(read-module-file actual-mod) was nil")
+            end
+          else
+            return print("Value module-file-path=(find-module-path actual-mod) was nil")
+          end
+        else
+          return print("Value actual-mod=(or (. imports mod) mod) was nil")
+        end
+      else
+        return print("(at least) one of the values of (cur-mod-name imports)=(read-module-imports-fnl 0) was nil")
       end
     end
     v_0_0 = goto_definition0
@@ -379,13 +471,41 @@ do
   local v_0_
   do
     local v_0_0
-    local function gib_definition0(mod, word)
-      local imports = read_module_imports_fnl(0)
-      local actual_mod = (imports[mod] or mod)
-      local module_lines, module_ft = read_module_file(actual_mod)
-      local definition_lines = find_definition_str_fnl(module_lines, word)
-      if definition_lines then
-        return pop(definition_lines, module_ft)
+    local function gib_definition0(word, mod)
+      if mod then
+        local cur_mod_name, imports = read_module_imports_fnl(0)
+        if ((nil ~= cur_mod_name) and (nil ~= imports)) then
+          local actual_mod = (imports[mod] or mod)
+          if (nil ~= actual_mod) then
+            local module_lines, module_ft = read_module_file(actual_mod)
+            if ((nil ~= module_lines) and (nil ~= module_ft)) then
+              local definition_lines = find_definition_str_fnl(module_lines, word)
+              if (nil ~= definition_lines) then
+                return pop(definition_lines, module_ft)
+              else
+                return print("Value definition-lines=(find-definition-str-fnl module-lines word) was nil")
+              end
+            else
+              return print("(at least) one of the values of (module-lines module-ft)=(read-module-file actual-mod) was nil")
+            end
+          else
+            return print("Value actual-mod=(or (. imports mod) mod) was nil")
+          end
+        else
+          return print("(at least) one of the values of (cur-mod-name imports)=(read-module-imports-fnl 0) was nil")
+        end
+      else
+        local current_file_lines = read_file_to_lines(vim.fn.expand("%"))
+        if (nil ~= current_file_lines) then
+          local definition_lines = find_definition_str_fnl(current_file_lines, word)
+          if (nil ~= definition_lines) then
+            return pop(definition_lines, vim.bo.filetype)
+          else
+            return print("Value definition-lines=(find-definition-str-fnl current-file-lines word) was nil")
+          end
+        else
+          return print("Value current-file-lines=(read-file-to-lines (vim.fn.expand \"%\")) was nil")
+        end
       end
     end
     v_0_0 = gib_definition0
@@ -405,18 +525,16 @@ _G.gib_def = function(_goto)
       local mod = (_3_0)[1]
       local ident = (_3_0)[2]
       if _goto then
-        return goto_definition(mod, ident)
+        return goto_definition(ident, mod)
       else
-        return gib_definition(mod, ident)
+        return gib_definition(ident, mod)
       end
     elseif ((type(_3_0) == "table") and (nil ~= (_3_0)[1])) then
       local ident = (_3_0)[1]
-      local _let_0_ = utils["split-last"](vim.fn.expand("%:t"), ".")
-      local current_file = _let_0_[1]
       if _goto then
-        return goto_definition(current_file, ident)
+        return goto_definition(ident)
       else
-        return gib_definition(current_file, ident)
+        return gib_definition(ident)
       end
     end
   end
@@ -425,12 +543,5 @@ _G.gib_def = function(_goto)
   end
   return xpcall(_2_, _3_)
 end
-vim.api.nvim_set_keymap("n", "MN", ":call v:lua.gib_def(v:false)<CR>", {noremap = true})
-vim.api.nvim_set_keymap("n", "MM", ":call v:lua.gib_def(v:true)<CR>", {noremap = true})
-local a0 = "hi"
-if (nil ~= a0) then
-  local b = "ho"
-  if (nil ~= b) then
-    return print(a0, b)
-  end
-end
+vim.api.nvim_set_keymap("n", "MM", ":call v:lua.gib_def(v:false)<CR>", {noremap = true})
+return vim.api.nvim_set_keymap("n", "MN", ":call v:lua.gib_def(v:true)<CR>", {noremap = true})
