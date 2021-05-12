@@ -196,7 +196,8 @@
                parent                   (node:parent)
                (r1 c1 r2 c2)            (parent:range)]
       (vim.cmd (.. "view " module-file-path))
-      (vim.fn.cursor (+ r1 2) c1))
+      (vim.fn.cursor (+ r1 2) c1)
+      (vim.cmd "normal zz"))
 
     ; no module given - result in current file
     (bind-let [module-lines  (vim.api.nvim_buf_get_lines 0 1 -1 false)
@@ -218,22 +219,4 @@
     (bind-let [current-file-lines (read-file-to-lines (vim.fn.expand "%"))
                definition-lines (find-definition-str-fnl current-file-lines word)]
       (pop definition-lines vim.bo.filetype))))
-
-;(fn _G.gib_def [goto]
-  ;(xpcall
-    ;(fn []
-      ;(let [word (get-current-word)
-            ;segs (utils.split-last word ".")]
-        ;(match segs
-          ;[mod ident]
-          ;(if goto 
-            ;(goto-definition ident mod)
-            ;(gib-definition ident mod))
-                  
-
-          ;[ident] 
-          ;(if goto 
-            ;(goto-definition ident)
-            ;(gib-definition ident)))))
-    ;#(print (fennel.traceback $1))))
 
