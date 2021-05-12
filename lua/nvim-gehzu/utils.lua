@@ -16,15 +16,15 @@ do
   package.loaded[name_0_] = module_0_
   _0_0 = module_0_
 end
-local autoload = (require("aniseed.autoload")).autoload
+local autoload = (require("nvim-gehzu.aniseed.autoload")).autoload
 local function _1_(...)
   local ok_3f_0_, val_0_ = nil, nil
   local function _1_()
-    return {autoload("aniseed.core"), autoload("aniseed.fennel"), autoload("aniseed.nvim"), autoload("aniseed.string")}
+    return {autoload("nvim-gehzu.aniseed.core"), autoload("nvim-gehzu.aniseed.fennel"), autoload("nvim-gehzu.aniseed.nvim"), autoload("nvim-gehzu.aniseed.string")}
   end
   ok_3f_0_, val_0_ = pcall(_1_)
   if ok_3f_0_ then
-    _0_0["aniseed/local-fns"] = {autoload = {a = "aniseed.core", fennel = "aniseed.fennel", nvim = "aniseed.nvim", str = "aniseed.string"}}
+    _0_0["aniseed/local-fns"] = {autoload = {a = "nvim-gehzu.aniseed.core", fennel = "nvim-gehzu.aniseed.fennel", nvim = "nvim-gehzu.aniseed.nvim", str = "nvim-gehzu.aniseed.string"}}
     return val_0_
   else
     return print(val_0_)

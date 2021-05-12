@@ -7,6 +7,7 @@
             ts nvim-treesitter}})
    ;require-macros [nvim-gehzu.macros]})
 
+
 (macro bind-let [binds ...]
   (fn normalize-elem [ident]
     (let [s (tostring ident)]
@@ -27,7 +28,7 @@
                  `(let [,name ,value] 
                    (if (~= nil ,name) 
                      ,expr 
-                     (print ,(.. "Value " (view name) "=" (view value) " was nil")))))
+                     (print ,(.. "[" (- name.line 1) "] Value " (view name) "=" (view value) " was nil")))))
 
             (set expr `(let [,name ,value] ,expr))))
 
@@ -44,14 +45,8 @@
                `(let [,mappings ,value] 
                   (if ,not-nil-list 
                     ,expr
-                    (print ,(.. "(at least) one of the values of " (view mappings) "=" (view value) " was nil")))))))))
+                    (print ,(.. "[" (- (. mappings 1 :line) 1) "] (at least) one of the values of " (view mappings) "=" (view value) " was nil")))))))))
   expr)
-
-
-;(defn open-file [path]
-  ;(bind-let [target-winnr (v)]))
-
-
 
 (def- query-module-header
   (vim.treesitter.parse_query
@@ -152,17 +147,12 @@
     (values result ft)))
 
 
-;(defn make-def-query [symbol])
-  ;(vim.treesitter.parse_query 
-    ;"fennel"
-    ;(.. "(function_call
-          ;name: (identifier) @fn-name (#eq? @fn-name \"defn\")
-          ;(identifier) @symbol-name (#contains? @symbol-name \"" symbol "\"))")))
 (defn make-def-query [symbol]
   (vim.treesitter.parse_query 
     "fennel"
     (.. "(function_call
-          name: (identifier)
+          name: (identifier) @fn-name (#match? @fn-name \"defn|def|defn-|def-|fn|local|macro\")
+          .
           (identifier) @symbol-name (#contains? @symbol-name \"" symbol "\"))")))
 
 
@@ -229,32 +219,21 @@
                definition-lines (find-definition-str-fnl current-file-lines word)]
       (pop definition-lines vim.bo.filetype))))
 
-(fn _G.gib_def [goto]
-  (xpcall
-    (fn []
-      (let [word (get-current-word)
-            segs (utils.split-last word ".")]
-        (match segs
-          [mod ident]
-          (if goto 
-            (goto-definition ident mod)
-            (gib-definition ident mod))
+;(fn _G.gib_def [goto]
+  ;(xpcall
+    ;(fn []
+      ;(let [word (get-current-word)
+            ;segs (utils.split-last word ".")]
+        ;(match segs
+          ;[mod ident]
+          ;(if goto 
+            ;(goto-definition ident mod)
+            ;(gib-definition ident mod))
                   
 
-          [ident] 
-          (if goto 
-            (goto-definition ident)
-            (gib-definition ident)))))
-    #(print (fennel.traceback $1))))
+          ;[ident] 
+          ;(if goto 
+            ;(goto-definition ident)
+            ;(gib-definition ident)))))
+    ;#(print (fennel.traceback $1))))
 
-
-  ;(gib-definition "help-thingy" (ident)))
-
-(vim.api.nvim_set_keymap :n :MM ":call v:lua.gib_def(v:false)<CR>" {:noremap true})
-(vim.api.nvim_set_keymap :n :MN ":call v:lua.gib_def(v:true)<CR>" {:noremap true})
-
-; vim.api.nvim_buf_get_name
-; vim.api.nvim_buf_call
-; vim.api.nvim_buf_set_text
-; vim.api.nvim_buf_set_var
-; vim.fn.bufnr
